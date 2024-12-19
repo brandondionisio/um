@@ -1,0 +1,297 @@
+/**************************************************************
+ *
+ *                     README
+ *
+ *     Assignment: HW 6: um
+ *        Authors: Dan Glorioso & Brandon Dionisio (dglori02 & bdioni01)
+ *           Date: 04/11/24
+ *
+ **************************************************************/
+
+Who we collaborated with:
+       
+    We did not collaborate with anyone on this assignment. We looked over and
+    asked questions of Marten in office hours about our load program. 
+
+What we implemented correctly:
+ 
+    We fully implemented the UM program, effectively implementing the handling
+    for every single instruction.
+
+– Briefly enumerates any significant departures from your design
+    One structual changes that was made from our design is that we modified the
+    modules we were using to consolidate some of the modules that originally
+    only had a handful of functions. Many of the getters that are now in the 
+    read_and_execute module were originally in their own module. We also 
+    consolidated our control and user IO modules we were originally going to 
+    use for the instructions that deal with input and output as well as loading
+    programs and halting the program, but to keep many of the operations in the
+    same file as possible, we moved these functions to either the operations 
+    module that deals with the instructions and their respective operaand how 
+    they relate to one another. 
+    
+    Our way of storing our instructions has not changed drastically from our 
+    design, although we realized we do not need a sequence to store the 
+    indicies of the mapped segments as the sequence of UArrays that stores the
+    segments and the words in each segment are never deleted. Even when we 
+    unmapped, the segment is only set to NULL and the index of that segent is 
+    added to the unmapped sequence, so there is no need to keep track of which
+    segments are mapped by their indices. 
+
+Architecture of our system:
+
+Modules:
+
+UM:
+
+    The UM module deals with argument handling and the calling of the main
+    driver of the program. This module makes use of the statistic struct from
+    the sys/stat library to view the length of the user-provided file before
+    opening it, verifying that it can be read in as 32-bit instructions. The
+    module opens the file (if possible) and transfers control to the
+    read_and_execute module, which is responsible for reading and executing the
+    instructions in the file, along with closing the file.
+
+Read_and_execute:
+
+    The read_and_execute module has three central components: the main driver
+    of the module, the function that reads in instructions, and the function
+    that executes the instructions. The driver of the read_and_execute module
+    is responsible for first initializing the registers and address space, and
+    then calling the reading and executing functions. To do this, 
+    read_and_execute relies on the segment module to create the Address_space
+    object, which will contain the segments and instructions, and the UM module
+    which will provide the file to allow the reading function to read in
+    instructions.
+        The read_instructions function reads from the provided file to create
+    32-bit words by utilizing bitpack, and then maps these words into the 0
+    segment of the address space by again, calling the functions in the segment
+    module. 
+        The execute_instructions function initializes the program counter,
+    which is used to track the index of the instruction that is currently being
+    executed. This function uses the segment module to obtain each instruction
+    pointed to by the program counter and then extracts the instruction's
+    opcode to execute the corresponding instruction. In executing the correct
+    instruction, the function calls the operations module to carry out the
+    instruction's task.
+
+Segment:
+
+    The segment module implement an abstract data type for managing memory
+    segments in a struct that represents the segments in memory for the
+    Universal Machine. The segment module contains functions to create a new
+    instance of the Address_space struct that encapsulates the memory segments
+    currently in use storing words, as well as a sequence storing the indices
+    of the segments that are not currently mapped. This module abstracts the 
+    concept of a segmented memory space by using the Address_space struct that 
+    maintains the segments in use within in memory and the segments not in use.
+    Within the rest of the functions within this program, the Address_space is
+    called and performs necessary operations on different elements within the 
+    struct, effectively hiding the implementation of the memory space from the
+    other modules and only performing the operations on the sequences stored
+    within the Address_space struct as intended. In this way, the other modules
+    do not need to know how the memory is stored or which segments in memory 
+    are actually storing instructions. The read_and_execute module most 
+    frequenctly calls the segment module to move segments and words around in
+    memory, but never uses parameters that refer to the actual contents of the 
+    memory space. Each time the segment module is called, the instance of the
+    Address_space struct created at the beginning of the program (using the
+    new_address_space function) is passed through so that the segment module 
+    can perform the necessary operations on the memory space while maintaining
+    the abstraction of the memory space.
+    
+    The segment module is initally called by the read_and_execute module to 
+    create the Address_space struct that will store the segments and words 
+    in memory. An important aspect of the segment modules functionality is that
+    it can return a pointer to a word at a given offset index within a  
+    specified segment. This functionality is used by the operations module to
+    both fetch a word from a specific segment in memory and to store a word in
+    a register to a specific segment in within the memory in the address space.
+    When loading a program within the operations module, this same function is
+    used to copy over all of the instructions within a segment of memory into a
+    new segment in the address space to replace the 0 segment of instructions 
+    that the program will execute.
+
+Operations:
+
+    The operations module contains functions to execute each of the 14 
+    instructions that the Universal Machine can execute. For arithmetic
+    operations like ad, multiply, divide, and nand, the parameters
+    passed into the operations module takes in a pointer to the array of the 
+    8 registers as well as register indices extracted from the instruction
+    that are used in the functions to perform the operations on intended
+    registers in the program. Each of the operations functions are called by
+    the read_and_execute module when the execute_instructions function is
+    traversing through the instructions in the 0 segment of the address space.
+    Other functions within this module manage segments in memory, such as 
+    loading a word from a segment in memory into a register or storing a 
+    register into a word within a segment in memory. To perform these 
+    operations, the operations module knows the Address_space struct secret
+    from the segment module as it is defined in the top of the segment.c file.
+    While this module knows the contents of the memory space, it does not
+    have functions that require certain elements of the Address_space struct to
+    be passed in a parameters in order to keep the abstraction of the memory
+    space intact from other module that call on the operations module, such as
+    the read_and_execute module. Again, like in the segment module, the
+    parameter calls for the Address_space space in the parameters so
+    that the actual contents of the memory space are only known by the segment
+    and operations modules. Once the Address_space space is passed through a 
+    function within operations, then the function can access the in_use and
+    unmapped sequences within the struct since it knows the content of the 
+    struct.
+
+Time for 50 million instructions:
+
+    To estimate the time it would take to run 50 million instructions, we added
+    a counter to our program that would increment every time an instruction was
+    executed. We did this as the number of instructions in the umdump is not
+    equal to the number of instructions executed as the program will jump
+    around and loop through different sections of instructions. At the end of
+    the program, we outputted the number of instructions. We know our program
+    runs midmark in about 8.2 seconds and, from our counter, we know midmark
+    executes 85070521 instructions. Dividing the number of seconds taken to 
+    execute by the number of instruction executed, we calculated the number of
+    seconds it takes to execute one instruction. We then multiplied this rate 
+    by 50 million to conclude that it would take about 4.82 seconds to execute
+    50 million instructions.
+
+    Futhermore, we also ran our program with the instruction counter with 
+    the larger file, sandmark, which our program ran in 204 seconds, and found
+    that there were 2113497560 instructions in this program. Dividing 204
+    seconds by the number of instruction executed yielded a rate very similar 
+    to the rate we calculated with midmark. We then multiplied this rate by 50
+    million to conclude that it would again take about 4.82 seconds to execute
+    50 million instructions. 
+ 
+UM unit tests:
+    halt_test - Tests the functionality of the halt instruction by simply
+                halting the program
+    verbose_halt_test - Tests the functionality of the halt instruction and the
+                        output instruction by printing out "bad'\n'" if the
+                        program does not halt.
+    output_test - Tests the functionality of the output instruction by printing
+                  out register 0 and then halting.
+    output_load_test - Tests the functionality of the load value instruction by
+                       loading register 1 with 60 and then printing out that
+                       value. Lastly, it halts.
+    build_print_six - Tests the functionality of the add instruction by adding
+                      registers 1 and 2 containing 48 and 6 and then printing
+                      out the value. Lastly, it halts.
+    add_non_adjacent_test - Tests the functionality of the add instruction when
+                            adding two registers that are not adjacent by
+                            adding registers 1 and 4 containing 17 and 273 and
+                            then printing out the value. Lastly, it halts.
+    in_and_out_test - Tests the functionality of the input instruction by
+                      prompting the user for input and then outputting that
+                      input and halting.
+    add_input_test - Tests using the add instruction with the input instruction
+                     by adding 2 to an inputted value and printing out the
+                     result. Lastly, it halts.
+    multiply_test - Tests the functionality of the multiply instruction by
+                    multiplying registers 2 and 3 containing 2 and 54. Then
+                    the test outputs the result followed by r1 containing 111
+                    followed by the result again, effectively printing out
+                    "lol". Lastly, it halts.
+    multiply_test_input - Tests the multiply instruction with an inputted value
+                          by multiplying an input with r2 containing 3 and then
+                          outputting the result. Lastly, it halts.
+    multiply_by_zero_test - Tests the functionality of the multiply instruction
+                            when multiplying by 0 by multiplying registers 1
+                            and 2 containing 0 and 2 and then outputting the
+                            result. Lastly, it halts.
+    multiply_by_one_test - Tests the functionality of the multiply instruction
+                           when multiplying by 1 by multiplying registers 1
+                           and 2 containing 1 and 36 and then outputting the
+                           result. Lastly, it halts.
+    multiply_by_self_test - Tests the functionality of the multiply
+                            instruction when multiplying a register by itself.
+                            This test multiplies register 1 containing 7 by
+                            itself and then outputting the result. Lastly, it
+                            halts.
+    divide_test - Tests the functionality of the divide instruction by
+                  dividing registers 2 and 3 containing 129 and 3. Then
+                  the test outputs the result followed by r1 containing 111
+                  followed by the result again, effectively printing out
+                  "lol". Lastly, it halts.
+    divide_by_one_test - Tests the functionality of the divide instruction
+                         when dividing by 1 by dividing registers 2 and 1
+                         containing 62 and 1 and then outputting the result.
+                         Lastly, it halts.
+    divide_by_self_test - Tests the functionality of the divide instruction
+                          when dividing a register by itself. This test divides
+                          register 1 containing 5 by itself and then outputting
+                          the result. Lastly, it halts.
+    divide_by_input_test - Tests the divide instruction with an inputted value
+                           by dividing an input with r2 containing 2 and then
+                           outputting the result. Lastly, it halts.
+    divide_by_self_input_test - Tests the divide instruction when dividing a
+                                register by itself with an inputted value.
+                                The test sets r1 to input, divides r1 by itself
+                                and then outputs the result. Lastly, it halts.
+    nand_test - Tests the functionality of the nand instruction by setting
+                register 1 to 25 1s followed by 7 0s using the multiply
+                instruction. The test then takes the bitwise nand of r1 and
+                itself and then outputs the result. Lastly, it halts.
+    nand_input_test - Tests the functionallity of the nand instruction with
+                      an inputted value by applying the nand operator on that
+                      input and itself and then a second time on the result
+                      and itself. The test then outputs the final result and
+                      halts.
+    cmov_test_0 - Tests the functionality of the conditional move instruction
+                  when register c is 0 by loading the values 86, 85, and 0
+                  into r3, r1, and r2 respectively. The test sets r3 to r1
+                  when r2 is not 0 and then outputs the value of r3 and halts.
+                  In this case, r2 is 0 so r3 remains 86.
+    cmov_test_1 - Tests the functionality of the conditional move instruction
+                  when register c is 1 by loading the values 86, 85, and 1
+                  into r3, r1, and r2 respectively. The test sets r3 to r1
+                  when r2 is not 0 and then outputs the value of r3 and halts.
+                  In this case, r2 is 1 so r3 becomes 85.
+    map_test - Tests the functionality of the map instruction by mapping 71
+               segments of length 79. The test outputs the ID of the final
+               segment to be mapped and the length of the segments and halts.
+    unmap_test_1 - Tests the functionality of the unmap instruction by mapping
+                   113 segments of length 80. The test outputs the ID of the
+                   final segment to be mapped and then unmaps the 87 segment.
+                   It then maps one final segment and outputs the ID of that
+                   segment, which should be 87. Lastly, it halts.
+    unmap_test_2 - Tests the functionality of the unmap instruction by mapping
+                   113 segments of length 80. The test outputs the ID of the
+                   final segment to be mapped and then unmaps all but the 0
+                   segment. It then maps one final segment and outputs the
+                   ID of that segment, which should be 112. Lastly, it halts.
+    segment_store_test - Tests the functionality of the segmented store
+                         instruction by mapping a new segment of length 87.
+                         The test then stores the value 36 inside word 80 of
+                         segment 1, outputs "YAY" and halts.
+    segment_sl_test - Tests the functionality of the segmented store and
+                      segmented load instructions together by mapping 113
+                      segments of length 87 and then outputting the ID of the
+                      final segment to be mapped. The test then stores the
+                      value 36 inside the 80th word of the 50 segment. Finally,
+                      it retrieves the word using segmented store, outputs the
+                      value and halts.
+    load_test_0 - Tests the functionality of the load program instruction when
+                  rb = 0. This test without the load program instruction will
+                  print "abbad!cde" but with the call of the instruction the
+                  test will skip over the outputs of 'b', 'a', 'd', and '!'.
+                  So, it will only output "abcde" and then the test will halt.
+    load_test_not_0 - Tests the functionality of the load program instruction 
+                      by mapping a segment that is 40 long. Next, it sets r5 to
+                      contain an instruction to output r0 and uses segmented
+                      store to set the first 39 words in the mapped segment to
+                      contain this instruction. The test then sets r5 to
+                      contain an instruction to halt and uses segmented store
+                      to set the 40th word in the mapped segment to contain
+                      this instruction. Finally, it sets r0 to contain 87 and
+                      calls the load program instruction on segment 1 on the
+                      first word.
+   
+Time analyzing the assignment:
+       4 hours
+   
+Time preparing our design:
+       15 hours
+   
+Time solving the problems:   
+       25 hours
