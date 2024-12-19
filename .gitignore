@@ -1,3 +1,5 @@
 *.um
 *.1
 *.0
+.fullname
+.parter
